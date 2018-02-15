@@ -84,10 +84,9 @@ class Trainer(object):
 
         hidden = self.shared.init_hidden(self.args.batch_size)
 
-        hidden = self.train_shared(hidden)
-
         for self.epoch in range(self.start_epoch, self.args.max_epoch):
             # 1. Training the shared parameters ω of the child models
+            hidden = self.train_shared(hidden)
 
             # 2. Training the controller parameters θ
             self.train_controller()
@@ -97,7 +96,7 @@ class Trainer(object):
                     best_dag = self.derive()
                     loss, ppl = self.test(
                             self.test_data, best_dag, "test_best",
-                            max_num=self.batch_size*100)
+                            max_num=self.args.batch_size*100)
                 self.save_model()
 
             if self.epoch >= self.args.shared_decay_after:
@@ -110,7 +109,7 @@ class Trainer(object):
         loss = 0
         for dag in dags:
             # previous hidden is useless
-            output, hidden = self.shared(inputs, hidden, dag)
+            output, hidden = self.shared(inputs, dag, hidden=hidden)
             output_flat = output.view(-1, self.dataset.num_tokens)
             sample_loss = self.ce(output_flat, targets) / self.args.shared_num_sample
             loss += sample_loss
@@ -289,7 +288,7 @@ class Trainer(object):
         pbar = trange(0, data.size(0) - 1, self.max_length, desc="test")
         for count, idx in enumerate(pbar):
             data, targets = self.get_batch(data, idx, evaluation=True)
-            output, hidden = self.shared(data, hidden, dag)
+            output, hidden = self.shared(data, dag, hidden=hidden)
             output_flat = output.view(-1, self.dataset.num_tokens)
             total_loss += len(data) * self.ce(output_flat, targets).data
             hidden = detach(hidden)
